@@ -28,6 +28,15 @@ resource "aws_internet_gateway" "prom-internet-gateway" {
   }
 }
 
+resource "aws_eip_association" "eip_assoc" {
+  instance_id   = aws_instance.prom-server.id
+  allocation_id = aws_eip.example.id
+}
+
+resource "aws_eip" "example" {
+  vpc = true
+}
+
 # route table
 resource "aws_route_table" "prom-rt" {
   vpc_id = aws_vpc.prom_vpc.id
@@ -52,27 +61,6 @@ resource "aws_route_table_association" "dev-rta" {
   route_table_id = aws_route_table.prom-rt.id
 }
 
-# security group
-resource "aws_security_group" "dev-sec" {
-  name        = "dev-sg"
-  description = "dev security group"
-  vpc_id      = aws_vpc.prom_vpc.id
-
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
 # key pair
 
 resource "aws_key_pair" "prom-auth" {
@@ -84,18 +72,33 @@ resource "aws_key_pair" "prom-auth" {
 resource "aws_instance" "prom-server" {
   instance_type          = "t2.micro"
   key_name               = aws_key_pair.prom-auth.id
-  vpc_security_group_ids = [aws_security_group.dev-sec.id]
+  vpc_security_group_ids = [aws_security_group.allow_public.id]
   subnet_id              = aws_subnet.prom-public-subnet.id
-  user_data              = file("userdata.tpl")
 
-  ami = data.aws_ami.server_ami.id
-  root_block_device {
-    volume_size = 10
-  }
+    ami = data.aws_ami.server_ami.id
+    root_block_device {
+      volume_size = 30
+    }
+    tags = {
+      Name = "prom-server"
+    }
 
-  tags = {
-    Name = "prom-server"
-  }
+
+    provisioner "file" {
+    source      = "/mnt/c/Users/LogIT0000/terraform-spacelift/installation.sh"
+    destination = "/home/ubuntu/installation.sh"
+    }
+
+    connection {
+      type        = "ssh"
+      host        = self.public_ip
+      user        = "ubuntu"
+      private_key = file("~/.ssh/mtckey")
+      timeout     = "4m"
+    }
+
+    
+  
 
   # provisioner
   provisioner "local-exec" {
