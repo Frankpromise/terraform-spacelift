@@ -1,13 +1,24 @@
 #!/bin/bash
 
-    sudo apt-get -y update &&
-    sudo apt-get -y install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt-get -y update
-    sudo apt-get -y install docker-ce docker-ce-cli containerd.io
+# This installs the CodeDeploy agent and its prerequisites on Ubuntu 22.04.
+
+sudo apt-get update
+
+sudo apt-get install ruby-full ruby-webrick wget -y
+
+cd /tmp
+
+wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/releases/codedeploy-agent_1.3.2-1902_all.deb
+
+mkdir codedeploy-agent_1.3.2-1902_ubuntu22
+
+dpkg-deb -R codedeploy-agent_1.3.2-1902_all.deb codedeploy-agent_1.3.2-1902_ubuntu22
+
+sed 's/Depends:.*/Depends:ruby3.0/' -i ./codedeploy-agent_1.3.2-1902_ubuntu22/DEBIAN/control
+
+dpkg-deb -b codedeploy-agent_1.3.2-1902_ubuntu22/
+
+sudo dpkg -i codedeploy-agent_1.3.2-1902_ubuntu22.deb
+
+systemctl list-units --type=service | grep codedeploy
+sudo service codedeploy-agent status
