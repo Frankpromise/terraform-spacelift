@@ -28,14 +28,17 @@ resource "aws_internet_gateway" "prom-internet-gateway" {
   }
 }
 
-resource "aws_eip_association" "eip_assoc" {
-  instance_id   = aws_instance.prom-server.id
-  allocation_id = aws_eip.example.id
+/* resource "aws_eip_association" "eip_assoc" {
+  count = 2
+  instance_id = aws_instance.prom-server[count.index].id
+  
+  allocation_id = aws_eip.example[count.index].id
+
 }
 
 resource "aws_eip" "example" {
   vpc = true
-}
+} */
 
 # route table
 resource "aws_route_table" "prom-rt" {
@@ -70,35 +73,37 @@ resource "aws_key_pair" "prom-auth" {
 
 # instance
 resource "aws_instance" "prom-server" {
+  count = 2
   instance_type          = "t2.micro"
   key_name               = aws_key_pair.prom-auth.id
+  user_data              = file("./userdata.tpl")
   vpc_security_group_ids = [aws_security_group.allow_public.id]
   subnet_id              = aws_subnet.prom-public-subnet.id
 
-    ami = data.aws_ami.server_ami.id
-    root_block_device {
-      volume_size = 30
-    }
-    tags = {
-      Name = "prom-server"
-    }
+  ami = data.aws_ami.server_ami.id
+  root_block_device {
+    volume_size = 30
+  }
+  tags = {
+    Name = "prom-server-${count.index}"
+  }
 
 
-    provisioner "file" {
-    source      = "/mnt/c/Users/LogIT0000/terraform-spacelift/installation.sh"
-    destination = "/home/ubuntu/installation.sh"
-    }
+  provisioner "file" {
+    source      = "./install.sh"
+    destination = "/home/ubuntu/install.sh"
+  }
 
-    connection {
-      type        = "ssh"
-      host        = self.public_ip
-      user        = "ubuntu"
-      private_key = file("~/.ssh/mtckey")
-      timeout     = "4m"
-    }
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user        = "ubuntu"
+    private_key = file("~/.ssh/mtckey")
+    timeout     = "4m"
+  }
 
-    
-  
+
+
 
   # provisioner
   provisioner "local-exec" {
